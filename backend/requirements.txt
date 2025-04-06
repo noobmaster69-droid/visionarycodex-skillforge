@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+sqlalchemy
+pydantic
+langchain
+google-cloud-aiplatform
+faiss-cpu
+google-cloud-texttospeech
+psycopg2-binary
+faiss-cpu
+langchain_community
+langchain-google-vertexai
