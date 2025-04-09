@@ -1,9 +1,22 @@
 # skillforge/backend/services/learning_path.py
-from langchain.llms import VertexAI
+from langchain_google_vertexai import VertexAI
 from langchain.prompts import PromptTemplate
 
 def generate_learning_path(skills: list):
-    llm = VertexAI()
+    """
+    Generates a learning path based on a list of skills.
+
+    Args:
+        skills (list): A list of skills.
+
+    Returns:
+        list: A list of learning path topics.
+    """
+    llm = VertexAI(
+        model="gemini-2.0-flash-001",
+        project="platinum-scout-456204-j6",
+        location="us-central1",
+    )
     prompt = PromptTemplate(
         input_variables=["skills"],
         template="Create a learning path for these skills: {skills}",

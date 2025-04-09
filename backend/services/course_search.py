@@ -1,17 +1,26 @@
 # skillforge/backend/services/course_search.py
 from backend.database import SessionLocal
 from sqlalchemy import text
-from langchain.llms import VertexAI
+from langchain_google_vertexai import VertexAI
 from langchain.prompts import PromptTemplate
 from backend.models import Courses
-from langchain_community.embeddings import VertexAIEmbeddings
-from langchain_community.vectorstores import FAISS
+from langchain.embeddings import VertexAIEmbeddings
+from langchain.vectorstores import FAISS
 from langchain.schema import Document
 import os
 
 VECTOR_SPACE_PATH = "course_vector_space"
 
 def search_courses(query: str):
+    """
+    Searches for courses in the database and uses LangChain as a fallback.
+
+    Args:
+        query (str): The search query.
+
+    Returns:
+        list: A list of search results (dictionaries).
+    """
     db = SessionLocal()
     try:
         sql_query = text(
@@ -23,7 +32,11 @@ def search_courses(query: str):
         if results:
             return results
 
-        llm = VertexAI()
+        llm = VertexAI(
+            model="gemini-2.0-flash-001",
+            project="platinum-scout-456204-j6",
+            location="us-central1",
+        )
         prompt = PromptTemplate(
             input_variables=["query"],
             template="Answer the following question: {query}",

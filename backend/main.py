@@ -2,20 +2,19 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
-from backend.services import skill_inference, learning_path, content_gen, pacing, progress, course_search
-from backend.database import create_db_and_tables, SessionLocal, User, LearningPath, Progress, Content
+from services import skill_inference, learning_path, content_gen, pacing, progress, course_search
+from database import create_db_and_tables, SessionLocal, User, LearningPath, Progress, Content
 from google.cloud import texttospeech
 import json
-from backend.models import Courses
-
-import logging
-from fastapi import FastAPI, HTTPException
+from models import Courses
+import os
 
 app = FastAPI()
 
-logging.basicConfig(level=logging.DEBUG)
-
 create_db_and_tables()
+
+SERVICE_ACCOUNT_FILE = "C:\\Users\\Arunachaleshwar\\Desktop\\key.json"
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = SERVICE_ACCOUNT_FILE
 
 class JobInput(BaseModel):
     job_input: str
@@ -52,16 +51,10 @@ async def create_user(user: CreateUser):
     finally:
         db.close()
 
-@app.post("/infer_skills")
+@app.post("/infer_skills/", response_model=List[str])
 async def infer_skills(job_input: JobInput):
-    try:
-        skills = infer_skills(job_input.job_input)
-        return skills
-        # Your logic here using job_input.job_input
-        # return {"skills": ["example_skill1", "example_skill2"]}
-    except Exception as e:
-        logging.error(f"Error processing request: {e}")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+    skills = skill_inference.infer_skills(job_input.job_input)
+    return skills
 
 @app.post("/generate_path/", response_model=LearningPathResponse)
 async def generate_path(skills: List[str], user_id:int):
@@ -79,4 +72,47 @@ async def generate_path(skills: List[str], user_id:int):
     finally:
         db.close()
 
-# ... (rest of main.py)
+@app.post("/generate_content/", response_model=ContentResponse)
+async def generate_content(topic: str, learning_path_id: int):
+    content = content_gen.generate_content(topic)
+    media_url = None
+    if content:
+        media_url = content_gen.generate_audio(content, topic)
+    db = SessionLocal()
+    try:
+        new_content = Content(learning_path_id=learning_path_id, topic=topic, content_text=content, media_url=media_url)
+        db.add(new_content)
+        db.commit()
+        db.refresh(new_content)
+
+        new_course = Courses(title = topic, description = content, content_type = "module")
+        db.add(new_course)
+        db.commit()
+
+        return {"content": content, "media_url": media_url}
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error creating content: {e}")
+    finally:
+        db.close()
+
+@app.post("/adjust_pacing/")
+async def adjust_pacing(user_id: int, time_per_week: int):
+    pacing.adjust_pacing(user_id, time_per_week)
+    return {"message": "Pacing adjusted"}
+
+@app.get("/progress/{user_id}/", response_model=ProgressResponse)
+async def get_progress(user_id: int):
+    progress_value = progress.get_progress(user_id)
+    return {"progress": progress_value}
+
+@app.post("/update_progress/")
+async def update_user_progress(progress_update: UpdateProgress):
+    progress.update_progress(progress_update.user_id, progress_update.new_progress)
+    return {"message": "Progress updated"}
+
+@app.post("/search_courses/")
+async def search_courses_api(query: str):
+    results = course_search.search_courses(query)
+    return {"results": results}

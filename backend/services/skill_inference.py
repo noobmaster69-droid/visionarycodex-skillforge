@@ -1,3 +1,4 @@
+# skillforge/backend/services/skill_inference.py
 from langchain_google_vertexai import VertexAI
 from langchain.prompts import PromptTemplate
 
@@ -11,7 +12,11 @@ def infer_skills(job_input: str):
     Returns:
         list: A list of inferred skills.
     """
-    llm = VertexAI()
+    llm = VertexAI(
+        model="gemini-2.0-flash-001",
+        project="platinum-scout-456204-j6",
+        location="us-central1",
+    )
     prompt = PromptTemplate(
         input_variables=["job_input"],
         template="Extract skills from the following job description: {job_input}",
